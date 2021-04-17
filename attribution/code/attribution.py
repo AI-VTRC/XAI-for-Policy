@@ -50,9 +50,9 @@ attributions, approximation_error = lc.attribute(inputs=input,
                                                  target=0)
 
 # defining and applying Input * Gradient to see the importance of neurons for a layer and given input.
-lgs = InputXGradient(model)
-attributions = lgs.attribute(input,
-                                                 target=0)
+# lgs = InputXGradient(model)
+# attributions = lgs.attribute(input,
+#                                                  target=0)
 
 # # defining and applying DeepLIFT on SeedModel
 # dl = DeepLift(model)
