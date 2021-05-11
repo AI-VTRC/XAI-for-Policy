@@ -1,0 +1,388 @@
+---
+title: "Interactive AR Code"
+author: ""
+date: "April, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Credit
+Based on Andrew Brooks' work, http://brooksandrew.github.io/simpleblog/articles/association-rules-explore-app/
+
+## Library
+```{r library, echo=T, message=FALSE, warning=FALSE, results='hide'}
+library('Rsenal') # Rsenal is a R package developed by Andrew Brooks with several science tools
+library('devtools') # collection of package development tools
+library('shiny') # R interactive web app
+library('arules') # to perform mining association rules and frequent item sets
+library('arulesViz') # to visualize arules result
+```
+
+## Load data
+```{r loadData}
+data <- read.csv2(
+  "test2.csv", # data file location
+  sep = "," # separate each variable based on ,
+)
+```
+
+
+## Rshiny App
+```{r arApp}
+arApp <- function (dataset,
+                   # input data set
+                   bin = T,
+                   # returns the binary representation of input data set
+                   vars = 5,
+                   # default variables
+                   supp = 0.1,
+                   # default support values, item's frequency of occurrence
+                   conf = 0.5) {
+                   # default conditional probability
+  
+  # ## binning numeric data
+  for (i in 1:ncol(dataset)) {
+    if (class(dataset[, i]) %in% c('numeric', 'integer'))
+      dataset[, i] <- Rsenal::depthbin(dataset[, i], nbins = 10)
+  }
+  
+  
+  #####################################################################################################
+  ## calling Shiny App
+  shinyApp(
+    ui = shinyUI(pageWithSidebar(
+      headerPanel("AR for TechPolicy"), # header of the app
+      
+      sidebarPanel( # side panel for the app
+        conditionalPanel(condition = "input.samp=='Sample'", # load the variables on to the side panel
+                         numericInput("nrule", 'Number of Rules', 5), br()),
+                         # default number of rules 
+        
+        conditionalPanel(
+          condition = "input.mytab=='graph'",
+          radioButtons(
+            'graphType',
+            label = 'Graph Type',
+            choices = c('itemsets', 'items'),
+            inline = T
+          ),
+          br()
+        ),
+        
+        conditionalPanel(condition = "input.lhsv=='Subset'",
+                         uiOutput("choose_lhs"), br()),
+        
+        conditionalPanel(condition = "input.rhsv=='Subset'",
+                         uiOutput("choose_rhs"), br()),
+        
+        conditionalPanel(
+          condition = "input.mytab=='grouped'",
+          sliderInput(
+            'k',
+            label = 'Choose # of rule clusters',
+            min = 1,
+            max = 150,
+            step = 1,
+            value = 15
+          ),
+          br()
+        ),
+        
+        conditionalPanel(
+          condition = "input.mytab %in%' c('grouped', 'graph', 'table', 'datatable', 'scatter', 'paracoord', 'matrix', 'itemFreq')",
+          radioButtons(
+            'samp',
+            label = 'Sample',
+            choices = c('All Rules', 'Sample'),
+            inline = T
+          ),
+          br(),
+          uiOutput("choose_columns"),
+          br(),
+          sliderInput(
+            "supp",
+            "Support:",
+            min = 0,
+            max = 1,
+            value = supp ,
+            step = 1 / 10000
+          ),
+          br(),
+          sliderInput(
+            "conf",
+            "Confidence:",
+            min = 0,
+            max = 1,
+            value = conf ,
+            step = 1 / 10000
+          ),
+          br(),
+          selectInput(
+            'sort',
+            label = 'Sorting Criteria:',
+            choices = c('lift', 'confidence', 'support')
+          ),
+          br(),
+          br(),
+          numericInput("minL", "Min. items per set:", 2, min = 2),
+          br(),
+          numericInput("maxL", "Max. items per set::", 3, min = 2),
+          br(),
+          radioButtons(
+            'lhsv',
+            label = 'LHS variables',
+            choices = c('All', 'Subset')
+          ),
+          br(),
+          radioButtons(
+            'rhsv',
+            label = 'RHS variables',
+            choices = c('All', 'Subset')
+          ),
+          br(),
+          downloadButton('downloadData', 'Download Rules as CSV')
+        )
+        
+      ),
+      
+      mainPanel(
+        a("credits in code"),
+        tabsetPanel(
+          id = 'mytab',
+          tabPanel(
+            'Grouped',
+            value = 'grouped',
+            plotOutput("groupedPlot", width = '100%', height = '100%')
+          ),
+          tabPanel(
+            'Graph',
+            value = 'graph',
+            plotOutput("graphPlot", width = '100%', height = '100%')
+          ),
+          tabPanel(
+            'Scatter',
+            value = 'scatter',
+            plotOutput("scatterPlot", width = '100%', height = '100%')
+          ),
+          tabPanel(
+            'Parallel Coordinates',
+            value = 'paracoord',
+            plotOutput("paracoordPlot", width = '100%', height = '100%')
+          ),
+          tabPanel(
+            'Matrix',
+            value = 'matrix',
+            plotOutput("matrixPlot", width = '100%', height = '100%')
+          ),
+          tabPanel(
+            'ItemFreq',
+            value = 'itemFreq',
+            plotOutput("itemFreqPlot", width = '100%', height = '100%')
+          ),
+          tabPanel('Table', value = 'table', verbatimTextOutput("rulesTable")),
+          tabPanel('Data Table', value = 'datatable', dataTableOutput("rulesDataTable"))
+        )
+      )
+      
+    )),
+    
+    
+    
+    ###################################################################################################
+    server = function(input, output) {
+      output$choose_columns <- renderUI({
+        checkboxGroupInput(
+          "cols",
+          "Choose variables:",
+          choices  = colnames(dataset),
+          selected = colnames(dataset)[1:vars]
+        )
+      })
+      
+      
+      output$choose_lhs <- renderUI({
+        checkboxGroupInput(
+          "colsLHS",
+          "Choose LHS variables:",
+          choices  = input$cols,
+          selected = input$cols[1]
+        )
+      })
+      
+      output$choose_rhs <- renderUI({
+        checkboxGroupInput(
+          "colsRHS",
+          "Choose RHS variables:",
+          choices  = input$cols,
+          selected = input$cols[1]
+        )
+      })
+      
+      ## Extracting and Defining arules
+      rules <- reactive({
+        tr <- as(dataset[, input$cols], 'transactions')
+        arAll <-
+          apriori(
+            tr,
+            parameter = list(
+              support = input$supp,
+              confidence = input$conf,
+              minlen = input$minL,
+              maxlen = input$maxL
+            )
+          )
+        
+        if (input$rhsv == 'Subset' & input$lhsv != 'Subset') {
+          varsR <- character()
+          for (i in 1:length(input$colsRHS)) {
+            tmp <-
+              with(dataset, paste(input$colsRHS[i], '=', levels(as.factor(
+                get(input$colsRHS[i])
+              )), sep = ''))
+            varsR <- c(varsR, tmp)
+          }
+          ar <- subset(arAll, subset = rhs %in% varsR)
+          
+        } else if (input$lhsv == 'Subset' &
+                   input$rhsv != 'Subset') {
+          varsL <- character()
+          for (i in 1:length(input$colsLHS)) {
+            tmp <-
+              with(dataset, paste(input$colsLHS[i], '=', levels(as.factor(
+                get(input$colsLHS[i])
+              )), sep = ''))
+            varsL <- c(varsL, tmp)
+          }
+          ar <- subset(arAll, subset = lhs %in% varsL)
+          
+        } else if (input$lhsv == 'Subset' &
+                   input$rhsv == 'Subset') {
+          varsL <- character()
+          for (i in 1:length(input$colsLHS)) {
+            tmp <-
+              with(dataset, paste(input$colsLHS[i], '=', levels(as.factor(
+                get(input$colsLHS[i])
+              )), sep = ''))
+            varsL <- c(varsL, tmp)
+          }
+          varsR <- character()
+          for (i in 1:length(input$colsRHS)) {
+            tmp <-
+              with(dataset, paste(input$colsRHS[i], '=', levels(as.factor(
+                get(input$colsRHS[i])
+              )), sep = ''))
+            varsR <- c(varsR, tmp)
+          }
+          ar <-
+            subset(arAll, subset = lhs %in% varsL & rhs %in% varsR)
+          
+        } else {
+          ar <- arAll
+        }
+        quality(ar)$conviction <-
+          interestMeasure(ar, method = 'conviction', transactions = tr)
+        quality(ar)$hyperConfidence <-
+          interestMeasure(ar, method = 'hyperConfidence', transactions = tr)
+        quality(ar)$cosine <-
+          interestMeasure(ar, method = 'cosine', transactions = tr)
+        quality(ar)$chiSquare <-
+          interestMeasure(ar, method = 'chiSquare', transactions = tr)
+        quality(ar)$coverage <-
+          interestMeasure(ar, method = 'coverage', transactions = tr)
+        quality(ar)$doc <-
+          interestMeasure(ar, method = 'doc', transactions = tr)
+        quality(ar)$gini <-
+          interestMeasure(ar, method = 'gini', transactions = tr)
+        quality(ar)$hyperLift <-
+          interestMeasure(ar, method = 'hyperLift', transactions = tr)
+        ar
+      })
+      
+      # Rule length
+      nR <- reactive({
+        nRule <-
+          ifelse(input$samp == 'All Rules', length(rules()), input$nrule)
+      })
+      
+      ## Grouped Plot #########################
+      output$groupedPlot <- renderPlot({
+        ar <- rules()
+        plot(sort(ar, by = input$sort)[1:nR()],
+             method = 'grouped',
+             control = list(k = input$k))
+      }, height = 800, width = 800)
+      
+      ## Graph Plot ##########################
+      output$graphPlot <- renderPlot({
+        ar <- rules()
+        plot(
+          sort(ar, by = input$sort)[1:nR()],
+          method = 'graph',
+          control = list(type = input$graphType)
+        )
+      }, height = 800, width = 800)
+      
+      ## Scatter Plot ##########################
+      output$scatterPlot <- renderPlot({
+        ar <- rules()
+        plot(sort(ar, by = input$sort)[1:nR()], method = 'scatterplot')
+      }, height = 800, width = 800)
+      
+      ## Parallel Coordinates Plot ###################
+      output$paracoordPlot <- renderPlot({
+        ar <- rules()
+        plot(sort(ar, by = input$sort)[1:nR()], method = 'paracoord')
+      }, height = 800, width = 800)
+      
+      ## Matrix Plot ###################
+      output$matrixPlot <- renderPlot({
+        ar <- rules()
+        plot(sort(ar, by = input$sort)[1:nR()],
+             method = 'matrix')
+      }, height = 800, width = 800)
+      
+      ## Item Frequency Plot ##########################
+      output$itemFreqPlot <- renderPlot({
+        trans <- as(dataset[, input$cols], 'transactions')
+        itemFrequencyPlot(trans)
+      }, height = 800, width = 800)
+      
+      ## Rules Data Table ##########################
+      output$rulesDataTable <- renderDataTable({
+        ar <- rules()
+        rulesdt <- rules2df(ar)
+        rulesdt
+      })
+      
+      ## Rules Printed ########################
+      output$rulesTable <- renderPrint({
+        ar <- rules()
+        inspect(sort(ar, by = input$sort))
+      })
+      
+      ## Download data to csv ########################
+      output$downloadData <- downloadHandler(
+        # file download
+        filename = 'GoC_PA_AR.csv',
+        # string of the filename with extension, csv style
+        content = function(file) {
+          # takes file path of a nonexistent temp file and writes content to that path
+          write.csv(rules2df(rules()), file) # write the file as csv
+        }
+      )
+      
+      
+    }
+  )
+}
+```
+
+## Run the app
+Run all the chunks above and execute the following code.
+```{r runARapp, eval = FALSE}
+arApp(data)
+```
+
