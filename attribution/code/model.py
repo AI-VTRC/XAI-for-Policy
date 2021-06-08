@@ -44,3 +44,28 @@ class LoanNetwork(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.out(x)
         return x
+    
+class LawsNetwork(nn.Module):
+    """3 layer ANN for Laws regression  """
+    def __init__(self, input_features, output_features, fc1=32, fc2=16, fc3=8):
+        """ C represents number of classes """
+        super(LawsNetwork, self).__init__()
+        self.fc1 = nn.Linear(input_features, fc1)
+        self.fc2 = nn.Linear(fc1, fc2)
+        self.fc3 = nn.Linear(fc2, fc3)
+        self.output = nn.Linear(fc3, output_features)
+    
+    def forward(self, x):
+        """ Forward pass with input x of shape N x C """
+        #Layer 1
+        x = self.fc1(x)
+        x = F.relu(x)
+        #Layer 2
+        x = self.fc2(x)
+        x = F.relu(x)
+        #Layer 3
+        x = self.fc3(x)
+        x = F.relu(x)
+        #Output Layer
+        x = self.output(x)
+        return x

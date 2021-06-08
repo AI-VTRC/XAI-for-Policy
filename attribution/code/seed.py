@@ -46,3 +46,9 @@ def gather_internet():
     X_train, y_train = torch.load("../data/internet_usage/tensor_train.pt")
     X_test, y_test = torch.load("../data/internet_usage/tensor_test.pt")
     return X_train, X_test, y_train, y_test
+
+def gather_laws():
+    """ Load tensors for main Laws datafile. """
+    X_train, y_train = torch.load("../data/laws/tensor_train.pt")
+    X_test, y_test = torch.load("../data/laws/tensor_test.pt")
+    return X_train, X_test, y_train, y_test
