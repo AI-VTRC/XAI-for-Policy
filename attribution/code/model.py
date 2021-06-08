@@ -46,7 +46,7 @@ class LoanNetwork(nn.Module):
         return x
     
 class LawsNetwork(nn.Module):
-    """3 layer ANN for Laws regression  """
+    """ 4 layer ANN for Laws regression  """
     def __init__(self, input_features, output_features, fc1=32, fc2=16, fc3=8):
         """ C represents number of classes """
         super(LawsNetwork, self).__init__()
