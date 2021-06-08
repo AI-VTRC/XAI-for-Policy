@@ -1,0 +1,7 @@
+Database has name too long cause can't push on git hub
+
+2014_a = 2014_Number of Wireless or Wireline Providers per State
+
+2014_b = 2014_Number of Wireless Providers by Download Speed
+
+2014_c = 2014_Number of Wireline Providers by Download Speed
