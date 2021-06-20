@@ -15,14 +15,14 @@ import seed
 from model import *
 
 #generate seed data
-X_train, X_test, y_train, y_test = seed.gather_laws()
+X_train, X_test, y_train, y_test = seed.gather_laws_DP()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #Enable cuda if available
 
 # seed the model for reproducibility (ideally across all nodes, later...)
 torch.manual_seed(0)
 
-dimensions = X_train.shape[1], y_train.shape[1]
+dimensions = X_train.shape[1], 3
 model = LawsNetwork(*dimensions).to(device)
 
 # implement backprop
@@ -35,10 +35,10 @@ def train(epochs=int(5e3), epsilon=0.1):
     """
     start_time = time.time()
     losses = []
-    
+    y_pred = model(X_train)
     for i in tqdm(range(epochs)):
         y_pred = model(X_train)
-        loss = loss_function(y_pred, y_train)
+        loss = loss_function(y_pred.argmax(1), y_train)
         losses.append(loss)
         
         if loss.item() < epsilon:

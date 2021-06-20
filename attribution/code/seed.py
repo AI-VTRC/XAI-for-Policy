@@ -52,3 +52,9 @@ def gather_laws():
     X_train, y_train = torch.load("../data/laws/tensor_train.pt")
     X_test, y_test = torch.load("../data/laws/tensor_test.pt")
     return X_train.float(), X_test.float(), y_train.float(), y_test.float()
+
+def gather_laws_DP():
+    """ Load tensors for main Laws datafile. """
+    X_train, y_train = torch.load("../data/laws/train_dp_tensor.pth")
+    X_test, y_test = torch.load("../data/laws/train_dp_tensor.pth")
+    return X_train.float(), X_test.float(), y_train.float(), y_test.float()
